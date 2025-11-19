@@ -2,23 +2,36 @@
 
 This guide will help you create a personal access token (PAT) and clone the repository for use with Claude Code CLI.
 
-## Step 1: Create a GitHub Personal Access Token
+## Step 1: Create a Fine-Grained Personal Access Token (Recommended)
 
-1. Go to GitHub Settings: https://github.com/settings/tokens
+Fine-grained tokens are more secure because they only grant access to specific repositories.
+
+1. Go to: https://github.com/settings/personal-access-tokens/new
+2. Fill in the token details:
+   - **Token name**: "Claude Code - analyze-performance"
+   - **Expiration**: Choose your preferred expiration (90 days recommended)
+   - **Description**: Optional - e.g., "For Claude Code CLI access"
+3. **Repository access**: Select **"Only select repositories"**
+   - Click the dropdown and choose: `icscript/analyze-performance`
+4. **Permissions** → **Repository permissions**:
+   - **Contents**: Read and write (required for push/pull)
+   - **Pull requests**: Read and write (if you'll create PRs)
+   - **Workflows**: Read and write (if you have GitHub Actions)
+   - **Metadata**: Read-only (automatically selected)
+5. Click **"Generate token"** at the bottom
+6. **IMPORTANT**: Copy the token immediately - you won't be able to see it again!
+
+### Alternative: Classic Personal Access Token (All Repositories)
+
+If you need access to multiple repositories or prefer the classic approach:
+
+1. Go to: https://github.com/settings/tokens
 2. Click **"Generate new token"** → **"Generate new token (classic)"**
 3. Give your token a descriptive name (e.g., "Claude Code CLI Access")
 4. Set an expiration (recommended: 90 days or custom)
 5. Select the following scopes:
    - ✅ **repo** (Full control of private repositories)
-     - repo:status
-     - repo_deployment
-     - public_repo
-     - repo:invite
-     - security_events
    - ✅ **workflow** (Update GitHub Action workflows)
-   - ✅ **write:packages** (if you use GitHub Packages)
-   - ✅ **read:org** (Read org and team membership)
-
 6. Click **"Generate token"** at the bottom
 7. **IMPORTANT**: Copy the token immediately - you won't be able to see it again!
 
@@ -140,21 +153,8 @@ git status
 git pull origin main
 ```
 
-## For Fine-Grained Personal Access Tokens (More Secure)
-
-GitHub now offers fine-grained PATs with repository-specific permissions:
-
-1. Go to: https://github.com/settings/personal-access-tokens/new
-2. Set repository access to "Only select repositories" → choose `icscript/analyze-performance`
-3. Set permissions:
-   - Contents: Read and write
-   - Pull requests: Read and write
-   - Workflows: Read and write
-4. Generate and copy the token
-
-Use this the same way as classic tokens above.
-
 ---
 
 **Created**: 2025-11-19
 **Repository**: icscript/analyze-performance
+**Token Type**: Fine-grained (repository-specific) recommended
