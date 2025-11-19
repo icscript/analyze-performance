@@ -157,8 +157,7 @@ class ValidatorPerformanceAnalyzer:
                 return sessions_data[0].get('session')
             raise ValueError("No session data available")
         except Exception as e:
-            print(f"Error fetching current session: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise RuntimeError(f"Error fetching current session: {e}")
 
     def fetch_validator_data(self, address: str, num_sessions: int = 30) -> Dict:
         """Fetch validator grade data from Turboflakes API
@@ -185,8 +184,7 @@ class ValidatorPerformanceAnalyzer:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching data: {e}", file=sys.stderr)
-            sys.exit(1)
+            raise RuntimeError(f"Error fetching data: {e}")
 
     def _get_cache_path(self, session: int) -> Path:
         """Get cache file path for a session
@@ -853,9 +851,7 @@ class ValidatorPerformanceAnalyzer:
 
             # Make sure we have at least 1 session after
             if sessions_after_change < 1:
-                print(f"Warning: Change session {change_session} is too recent.", file=sys.stderr)
-                print(f"Current session is {current_session}. Need at least one completed session after the change.", file=sys.stderr)
-                sys.exit(1)
+                raise ValueError(f"Change session {change_session} is too recent. Current session is {current_session}. Need at least one completed session after the change.")
 
             sessions_after = sessions_after_change
 
@@ -909,8 +905,7 @@ class ValidatorPerformanceAnalyzer:
                 # If validator not found in session, they weren't active - skip it
 
             if not sessions_data:
-                print("Error: Validator not found in any of the requested sessions", file=sys.stderr)
-                sys.exit(1)
+                raise ValueError("Validator not found in any of the requested sessions")
 
             # Calculate inclusion stats from collected sessions
             auth_sessions = sum(1 for s in sessions_data if s.get('is_auth'))
@@ -956,8 +951,7 @@ class ValidatorPerformanceAnalyzer:
 
             sessions_data = data.get('sessions_data', [])
             if not sessions_data:
-                print("Error: No session data available", file=sys.stderr)
-                sys.exit(1)
+                raise ValueError("No session data available")
 
             # Filter out current session if requested
             if exclude_current:
@@ -1369,11 +1363,9 @@ def load_peers(peers_file: str) -> Dict[str, str]:
                     peers[name.strip()] = address.strip()
         return peers
     except FileNotFoundError:
-        print(f"Error: Peers file not found: {peers_file}", file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(f"Peers file not found: {peers_file}")
     except Exception as e:
-        print(f"Error loading peers file: {e}", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(f"Error loading peers file: {e}")
 
 
 def analyze_peer_comparison(analyzer: 'ValidatorPerformanceAnalyzer',
