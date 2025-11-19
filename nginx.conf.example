@@ -1,0 +1,74 @@
+# Nginx configuration for Performance Analyzer
+# Place this in /etc/nginx/sites-available/performance-analyzer
+# Then symlink to sites-enabled: ln -s /etc/nginx/sites-available/performance-analyzer /etc/nginx/sites-enabled/
+
+server {
+    listen 80;
+    server_name your-domain.com www.your-domain.com;  # Change this
+
+    # Redirect to HTTPS (optional but recommended)
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com www.your-domain.com;  # Change this
+
+    # SSL certificates (use Let's Encrypt)
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # SSL settings (Mozilla Intermediate configuration)
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    # Proxy to FastAPI application
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeouts (increase for long-running analyses)
+        proxy_connect_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # Cache static assets (if any)
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2)$ {
+        proxy_pass http://localhost:8000;
+        expires 1d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # API endpoints (no caching)
+    location /api/ {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Longer timeouts for analysis endpoint
+        proxy_connect_timeout 180s;
+        proxy_send_timeout 180s;
+        proxy_read_timeout 180s;
+    }
+
+    # Logging
+    access_log /var/log/nginx/performance-analyzer-access.log;
+    error_log /var/log/nginx/performance-analyzer-error.log;
+}
+
+# To set up SSL with Let's Encrypt:
+# 1. Install certbot: apt-get install certbot python3-certbot-nginx
+# 2. Run: certbot --nginx -d your-domain.com -d www.your-domain.com
+# 3. Certbot will automatically update this config
