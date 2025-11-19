@@ -286,6 +286,167 @@ def health_check():
     )
 
 
+@app.get("/share/{analysis_id}")
+@limiter.limit("50/minute")
+def view_shared_analysis(request: Request, analysis_id: str):
+    """View a shared analysis in HTML format
+
+    This provides a user-friendly view of saved analyses when accessed via browser.
+    The /api/analysis/{id} endpoint returns JSON for API consumers.
+
+    Args:
+        request: FastAPI request (for rate limiting)
+        analysis_id: Short analysis ID from URL
+
+    Returns:
+        HTML page with analysis results
+    """
+    from fastapi.responses import HTMLResponse
+
+    analysis = db.get_analysis(analysis_id)
+
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    # Get the analysis data
+    results = analysis['results']
+
+    # Calculate improvement metrics
+    improvement = results.get('improvement', 0)
+    improvement_pct = 0
+    direction = 'no_change'
+
+    if improvement is not None:
+        before_score = results['before_stats'].get('aggregated_score', 0)
+        if before_score > 0:
+            improvement_pct = (improvement / before_score) * 100
+
+        if improvement > 0.01:
+            direction = "improvement"
+        elif improvement < -0.01:
+            direction = "decline"
+
+    # Generate HTML
+    before_stats = results['before_stats']
+    after_stats = results['after_stats']
+
+    # Direction arrow and color
+    arrow = "↑" if direction == "improvement" else "↓" if direction == "decline" else "→"
+    color = "green" if direction == "improvement" else "red" if direction == "decline" else "gray"
+
+    # Interpretation text
+    if abs(improvement) < 0.01:
+        interpretation = "✓ No significant change in performance"
+        interp_color = "gray"
+    elif improvement > 0.05:
+        interpretation = "✓✓ SIGNIFICANT IMPROVEMENT - Configuration change appears beneficial"
+        interp_color = "green"
+    elif improvement > 0.02:
+        interpretation = "✓ Moderate improvement - Configuration change likely beneficial"
+        interp_color = "green"
+    elif improvement > 0:
+        interpretation = "≈ Slight improvement - More data may be needed"
+        interp_color = "gray"
+    elif improvement > -0.02:
+        interpretation = "≈ Slight decline - More data may be needed"
+        interp_color = "gray"
+    elif improvement > -0.05:
+        interpretation = "✗ Moderate decline - Configuration change may be detrimental"
+        interp_color = "orange"
+    else:
+        interpretation = "✗✗ SIGNIFICANT DECLINE - Consider reverting configuration change"
+        interp_color = "red"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Analysis Results - Performance Analyzer</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <style>
+            .grade-a {{ color: #16a34a; }}
+            .grade-b {{ color: #ca8a04; }}
+            .grade-c {{ color: #ea580c; }}
+            .grade-d, .grade-f {{ color: #dc2626; }}
+        </style>
+    </head>
+    <body class="bg-gray-50">
+        <div class="min-h-screen py-8 px-4">
+            <div class="max-w-4xl mx-auto">
+                <div class="mb-6">
+                    <h1 class="text-3xl font-bold text-gray-900">Shared Analysis Results</h1>
+                    <p class="text-gray-600 mt-2">View-only link • <a href="/" class="text-blue-600 hover:underline">Create your own analysis</a></p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Analysis Results</h2>
+
+                    <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
+                        <div>
+                            <p class="text-gray-600">Network</p>
+                            <p class="font-medium capitalize">{results['network']}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">Change Session</p>
+                            <p class="font-medium">{results['change_session']}</p>
+                        </div>
+                        <div class="col-span-2">
+                            <p class="text-gray-600">Validator Address</p>
+                            <p class="font-mono text-xs break-all">{results['validator']}</p>
+                        </div>
+                        {'<div class="col-span-2"><p class="text-gray-600">Comment</p><p class="font-medium">' + str(results.get('comment', '')) + '</p></div>' if results.get('comment') else ''}
+                    </div>
+
+                    <div class="border-t pt-6">
+                        <h3 class="text-lg font-bold mb-4">Score Comparison</h3>
+
+                        <div class="grid grid-cols-3 gap-4 mb-4">
+                            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">Before</p>
+                                <p class="text-3xl font-bold">{before_stats['aggregated_score']:.4f}</p>
+                                <p class="text-xl font-medium mt-1 grade-{before_stats['aggregated_grade'][0].lower()}">{before_stats['aggregated_grade']}</p>
+                                <p class="text-sm text-gray-600 mt-2">{before_stats['para_count']} para sessions</p>
+                            </div>
+
+                            <div class="flex flex-col items-center justify-center">
+                                <span class="text-4xl text-{color}-600">{arrow}</span>
+                                <p class="font-medium mt-2 text-{color}-600">{improvement_pct:+.2f}%</p>
+                            </div>
+
+                            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 mb-1">After</p>
+                                <p class="text-3xl font-bold">{after_stats['aggregated_score']:.4f}</p>
+                                <p class="text-xl font-medium mt-1 grade-{after_stats['aggregated_grade'][0].lower()}">{after_stats['aggregated_grade']}</p>
+                                <p class="text-sm text-gray-600 mt-2">{after_stats['para_count']} para sessions</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 p-4 rounded-lg bg-{interp_color}-50 border border-{interp_color}-200">
+                            <p class="font-medium text-{interp_color}-800">{interpretation}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-6 border-t">
+                        <p class="text-sm text-gray-600 mb-2">Analysis ID: <span class="font-mono">{analysis_id}</span></p>
+                        <p class="text-sm text-gray-600">Analyzed: {analysis['timestamp']}</p>
+                    </div>
+                </div>
+
+                <div class="text-center text-sm text-gray-500">
+                    <p>Powered by the official Turboflakes ONE-T Performance Score formula</p>
+                    <p class="mt-1"><a href="/" class="text-blue-600 hover:underline">Analyze your own validator</a></p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    return HTMLResponse(content=html)
+
+
 # Serve frontend static files
 frontend_dir = Path(__file__).parent.parent / "frontend"
 

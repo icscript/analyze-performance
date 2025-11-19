@@ -281,6 +281,19 @@
                             'text-gray-800': results.direction === 'no_change'
                         }" x-text="interpretationText()"></p>
                     </div>
+
+                    <!-- Info about para vs auth sessions -->
+                    <div x-show="results.before_stats.auth_only_count > 0 || results.after_stats.auth_only_count > 0" class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm text-blue-800">
+                            <strong>ℹ️ Note:</strong> Only paravalidator sessions are scored.
+                            <span x-show="results.before_stats.auth_only_count > 0">
+                                Before period had <span x-text="results.before_stats.auth_only_count"></span> AUTH-only session(s) (excluded from score).
+                            </span>
+                            <span x-show="results.after_stats.auth_only_count > 0">
+                                After period had <span x-text="results.after_stats.auth_only_count"></span> AUTH-only session(s) (excluded from score).
+                            </span>
+                        </p>
+                    </div>
                 </div>
 
                 <!-- Shareable Link -->
@@ -475,15 +488,39 @@
 
                 shareUrl() {
                     if (!this.results || !this.results.analysis_id) return '';
-                    return `${window.location.origin}/api/analysis/${this.results.analysis_id}`;
+                    return `${window.location.origin}/share/${this.results.analysis_id}`;
                 },
 
                 async copyShareUrl() {
+                    const url = this.shareUrl();
+
+                    // Try modern clipboard API first
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        try {
+                            await navigator.clipboard.writeText(url);
+                            alert('Link copied to clipboard!');
+                            return;
+                        } catch (err) {
+                            console.log('Clipboard API failed, trying fallback:', err);
+                        }
+                    }
+
+                    // Fallback: Create temporary input and select text
                     try {
-                        await navigator.clipboard.writeText(this.shareUrl());
+                        const input = document.createElement('input');
+                        input.value = url;
+                        input.style.position = 'fixed';
+                        input.style.opacity = '0';
+                        document.body.appendChild(input);
+                        input.select();
+                        input.setSelectionRange(0, 99999); // For mobile
+                        document.execCommand('copy');
+                        document.body.removeChild(input);
                         alert('Link copied to clipboard!');
                     } catch (err) {
-                        console.error('Failed to copy:', err);
+                        console.error('All copy methods failed:', err);
+                        // Show the URL in a prompt as last resort
+                        prompt('Copy this URL:', url);
                     }
                 }
             };
