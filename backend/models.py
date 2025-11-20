@@ -29,11 +29,12 @@ class AnalyzeRequest(BaseModel):
     @field_validator('address')
     @classmethod
     def validate_address(cls, v: str) -> str:
-        # Basic SS58 address validation (starts with letter, 47-48 chars)
-        if not v or len(v) < 47 or len(v) > 48:
-            raise ValueError('Invalid SS58 address format (must be 47-48 characters)')
-        if not v[0].isalpha():
-            raise ValueError('Invalid SS58 address format (must start with a letter)')
+        # Basic SS58 address validation
+        # Polkadot addresses start with "1", Kusama with letters, Generic with "5"
+        if not v or len(v) < 46 or len(v) > 48:
+            raise ValueError('Invalid SS58 address format (must be 46-48 characters)')
+        if not v[0].isalnum():
+            raise ValueError('Invalid SS58 address format (must start with alphanumeric character)')
         return v
 
 
