@@ -436,6 +436,88 @@ def view_shared_analysis(request: Request, analysis_id: str):
     return HTMLResponse(content=html)
 
 
+# Access key for private admin pages
+COMMUNITY_ACCESS_KEY = "node-insights-2025"
+
+
+@app.get("/api/improvements")
+@limiter.limit("30/minute")
+def get_improvements(
+    request: Request,
+    key: str = "",
+    network: Optional[str] = None,
+    sort: str = "date",
+    limit: int = 50,
+    offset: int = 0
+):
+    """Get analyses that showed improvement and have comments
+
+    This endpoint returns data for the community improvements report.
+    Requires access key for authorization.
+
+    Args:
+        request: FastAPI request
+        key: Access key
+        network: Filter by network (kusama/polkadot)
+        sort: Sort by 'date' or 'improvement'
+        limit: Results per page
+        offset: Pagination offset
+
+    Returns:
+        JSON with improvement data
+    """
+    if key != COMMUNITY_ACCESS_KEY:
+        raise HTTPException(status_code=403, detail="Invalid access key")
+
+    # Validate parameters
+    if sort not in ["date", "improvement"]:
+        sort = "date"
+    if network and network not in ["kusama", "polkadot"]:
+        network = None
+    limit = min(max(limit, 1), 100)  # Clamp between 1 and 100
+    offset = max(offset, 0)
+
+    data = db.get_improvements(
+        network=network,
+        sort_by=sort,
+        limit=limit,
+        offset=offset
+    )
+
+    return data
+
+
+@app.get("/community")
+@limiter.limit("30/minute")
+def community_page(request: Request, key: str = ""):
+    """View community improvements report
+
+    Private admin page showing analyses with improvements and comments.
+    Requires access key for authorization.
+
+    Args:
+        request: FastAPI request
+        key: Access key
+
+    Returns:
+        HTML page with improvements table
+    """
+    from fastapi.responses import HTMLResponse
+
+    if key != COMMUNITY_ACCESS_KEY:
+        raise HTTPException(status_code=403, detail="Invalid access key")
+
+    # Serve the community page
+    community_file = frontend_dir / "community.html"
+    if not community_file.exists():
+        # Return a basic error if file doesn't exist
+        return HTMLResponse(content="<h1>Community page not found</h1>", status_code=503)
+
+    # Read and return the file content with the key embedded
+    content = community_file.read_text()
+    return HTMLResponse(content=content)
+
+
 # Serve frontend static files
 frontend_dir = Path(__file__).parent.parent / "frontend"
 
@@ -449,6 +531,18 @@ def serve_frontend():
             content={"message": "Frontend not yet deployed. API is available at /api/*"}
         )
     return FileResponse(index_file)
+
+
+@app.get("/robots.txt")
+def serve_robots():
+    """Serve robots.txt for search engine crawlers"""
+    robots_file = frontend_dir / "robots.txt"
+    if not robots_file.exists():
+        return JSONResponse(
+            status_code=404,
+            content={"message": "robots.txt not found"}
+        )
+    return FileResponse(robots_file, media_type="text/plain")
 
 
 # Mount static files if frontend directory exists

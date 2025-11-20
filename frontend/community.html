@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Improvements - Performance Analyzer</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-8 px-4" x-data="communityApp()" x-cloak>
+        <!-- Header -->
+        <div class="max-w-6xl mx-auto mb-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Community Improvements</h1>
+            <p class="text-gray-600">Configuration changes that improved validator performance</p>
+            <p class="mt-2">
+                <a href="/" class="text-blue-600 hover:underline">← Back to Analyzer</a>
+            </p>
+        </div>
+
+        <!-- Filters and Controls -->
+        <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-md p-4 mb-6">
+            <div class="flex flex-wrap gap-4 items-center">
+                <!-- Network Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Network</label>
+                    <select
+                        x-model="filters.network"
+                        @change="loadData()"
+                        class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">All Networks</option>
+                        <option value="kusama">Kusama</option>
+                        <option value="polkadot">Polkadot</option>
+                    </select>
+                </div>
+
+                <!-- Sort -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                    <select
+                        x-model="filters.sort"
+                        @change="loadData()"
+                        class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="date">Newest First</option>
+                        <option value="improvement">Highest Improvement</option>
+                    </select>
+                </div>
+
+                <!-- Results count -->
+                <div class="ml-auto text-sm text-gray-600">
+                    <span x-show="!loading">
+                        Showing <span x-text="items.length"></span> of <span x-text="total"></span> improvements
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="loading" class="max-w-6xl mx-auto text-center py-8">
+            <p class="text-gray-600">Loading improvements...</p>
+        </div>
+
+        <!-- Error State -->
+        <div x-show="error" class="max-w-6xl mx-auto bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+            <p class="text-red-800 font-medium">Error</p>
+            <p class="text-red-600 text-sm mt-1" x-text="error"></p>
+        </div>
+
+        <!-- Results Table -->
+        <div x-show="!loading && items.length > 0" class="max-w-6xl mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 border-b">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">Address</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">Improvement</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">Comment</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">Change</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">Before</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">After</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">Network</th>
+                            <th class="px-4 py-3 text-left font-medium text-gray-700">View</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in items" :key="item.id">
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="px-4 py-3 font-mono text-xs">
+                                    <span x-text="truncateAddress(item.address)" :title="item.address"></span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="text-green-600 font-medium" x-text="`+${item.improvement_pct.toFixed(2)}%`"></span>
+                                </td>
+                                <td class="px-4 py-3 max-w-xs">
+                                    <span class="truncate block" x-text="item.comment" :title="item.comment"></span>
+                                </td>
+                                <td class="px-4 py-3" x-text="item.change_session"></td>
+                                <td class="px-4 py-3" x-text="item.first_before_session || '-'"></td>
+                                <td class="px-4 py-3" x-text="item.last_after_session || '-'"></td>
+                                <td class="px-4 py-3">
+                                    <span
+                                        class="px-2 py-1 rounded text-xs"
+                                        :class="item.network === 'polkadot' ? 'bg-pink-100 text-pink-800' : 'bg-gray-100 text-gray-800'"
+                                        x-text="item.network"
+                                    ></span>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <a
+                                        :href="`/share/${item.id}`"
+                                        target="_blank"
+                                        class="text-blue-600 hover:underline"
+                                    >View</a>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="px-4 py-3 border-t bg-gray-50 flex items-center justify-between">
+                <div class="text-sm text-gray-600">
+                    Page <span x-text="currentPage"></span> of <span x-text="totalPages"></span>
+                </div>
+                <div class="flex gap-2">
+                    <button
+                        @click="prevPage()"
+                        :disabled="currentPage <= 1"
+                        class="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                    >
+                        Previous
+                    </button>
+                    <button
+                        @click="nextPage()"
+                        :disabled="currentPage >= totalPages"
+                        class="px-3 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div x-show="!loading && items.length === 0 && !error" class="max-w-6xl mx-auto text-center py-12">
+            <p class="text-gray-600">No improvements found matching your filters.</p>
+            <p class="text-sm text-gray-500 mt-2">Improvements require both a positive score change and a comment.</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="max-w-6xl mx-auto mt-8 text-center text-sm text-gray-500">
+            <p>Data from Performance Analyzer • <a href="/" class="text-blue-600 hover:underline">Run your own analysis</a></p>
+        </div>
+    </div>
+
+    <script>
+        function communityApp() {
+            return {
+                items: [],
+                total: 0,
+                loading: true,
+                error: null,
+                filters: {
+                    network: '',
+                    sort: 'date'
+                },
+                perPage: 25,
+                currentPage: 1,
+
+                get totalPages() {
+                    return Math.ceil(this.total / this.perPage) || 1;
+                },
+
+                init() {
+                    this.loadData();
+                },
+
+                async loadData() {
+                    this.loading = true;
+                    this.error = null;
+
+                    try {
+                        // Get access key from URL
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const key = urlParams.get('key') || '';
+
+                        // Build API URL
+                        const params = new URLSearchParams({
+                            key: key,
+                            sort: this.filters.sort,
+                            limit: this.perPage.toString(),
+                            offset: ((this.currentPage - 1) * this.perPage).toString()
+                        });
+
+                        if (this.filters.network) {
+                            params.set('network', this.filters.network);
+                        }
+
+                        const response = await fetch(`/api/improvements?${params}`);
+
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.detail || 'Failed to load data');
+                        }
+
+                        const data = await response.json();
+                        this.items = data.items;
+                        this.total = data.total;
+
+                    } catch (err) {
+                        this.error = err.message;
+                        this.items = [];
+                        this.total = 0;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                truncateAddress(address) {
+                    if (!address || address.length <= 16) return address;
+                    return address.substring(0, 8) + '...' + address.substring(address.length - 6);
+                },
+
+                prevPage() {
+                    if (this.currentPage > 1) {
+                        this.currentPage--;
+                        this.loadData();
+                    }
+                },
+
+                nextPage() {
+                    if (this.currentPage < this.totalPages) {
+                        this.currentPage++;
+                        this.loadData();
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

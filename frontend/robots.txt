@@ -1,0 +1,30 @@
+# Robots.txt for Performance Analyzer
+
+User-agent: *
+Disallow: /community
+Disallow: /share/
+Disallow: /api/
+
+# Allow main page
+Allow: /$
+
+# Block AI training bots
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Google-Extended
+Disallow: /
+
+# Block archive services from private pages
+User-agent: ia_archiver
+Disallow: /community
+Disallow: /share/

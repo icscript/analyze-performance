@@ -237,3 +237,103 @@ class AnalysisDatabase:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("VACUUM")
             conn.commit()
+
+    def get_improvements(self, network: Optional[str] = None,
+                         sort_by: str = "date",
+                         limit: int = 100,
+                         offset: int = 0) -> Dict:
+        """Get analyses that showed improvement and have comments
+
+        Used for the community improvements page to showcase successful
+        configuration changes.
+
+        Args:
+            network: Filter by network (kusama/polkadot), None for all
+            sort_by: Sort order - "date" (newest first) or "improvement" (highest first)
+            limit: Maximum results to return
+            offset: Pagination offset
+
+        Returns:
+            Dict with items list and total count
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+
+            # Build query conditions
+            conditions = []
+            params = []
+
+            if network:
+                conditions.append("network = ?")
+                params.append(network)
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            # Get total count first (before limit/offset)
+            count_query = f"""
+                SELECT COUNT(*) FROM analyses
+                {where_clause}
+            """
+            cursor = conn.execute(count_query, params)
+            total_in_db = cursor.fetchone()[0]
+
+            # Determine sort order
+            if sort_by == "improvement":
+                order_clause = "ORDER BY created_at DESC"  # Will sort in Python after filtering
+            else:  # date
+                order_clause = "ORDER BY created_at DESC"
+
+            # Get all matching records (we'll filter for improvement/comment in Python)
+            query = f"""
+                SELECT id, timestamp, network, address, change_session, results_json
+                FROM analyses
+                {where_clause}
+                {order_clause}
+            """
+
+            cursor = conn.execute(query, params)
+            rows = cursor.fetchall()
+
+            # Filter for improvement > 0 and non-empty comment
+            items = []
+            for row in rows:
+                results = json.loads(row['results_json'])
+
+                # Check if has improvement and comment
+                improvement = results.get('improvement', 0)
+                comment = results.get('comment', '')
+
+                if improvement and improvement > 0 and comment and comment.strip():
+                    # Extract session range info
+                    before_sessions = results.get('before_sessions', [])
+                    after_sessions = results.get('after_sessions', [])
+
+                    first_before = min([s.get('session', 0) for s in before_sessions]) if before_sessions else None
+                    last_after = max([s.get('session', 0) for s in after_sessions]) if after_sessions else None
+
+                    items.append({
+                        'id': row['id'],
+                        'timestamp': row['timestamp'],
+                        'network': row['network'],
+                        'address': row['address'],
+                        'change_session': row['change_session'],
+                        'improvement_pct': results.get('improvement_pct', 0),
+                        'comment': comment,
+                        'first_before_session': first_before,
+                        'last_after_session': last_after
+                    })
+
+            # Sort by improvement if requested
+            if sort_by == "improvement":
+                items.sort(key=lambda x: x['improvement_pct'], reverse=True)
+
+            # Apply pagination
+            total_improvements = len(items)
+            paginated_items = items[offset:offset + limit]
+
+            return {
+                'items': paginated_items,
+                'total': total_improvements,
+                'limit': limit,
+                'offset': offset
+            }
