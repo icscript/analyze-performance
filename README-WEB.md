@@ -6,10 +6,11 @@ Web-based interface for analyzing Polkadot and Kusama validator performance befo
 
 - **Simple Web Interface**: No CLI knowledge required
 - **Network-normalized Scoring**: Exact Turboflakes dashboard match (default)
-- **Shareable Results**: Each analysis gets a unique URL
+- **Shareable Results**: Each analysis gets a unique URL with formatted HTML view
 - **Automatic Caching**: Subsequent analyses are instant
-- **Auto-detect Mode**: Automatically calculate optimal session ranges
+- **Auto-calculate Mode**: Automatically calculate optimal session ranges from prior changes
 - **Detailed Breakdowns**: Optional session-by-session analysis
+- **Input Validation**: Security-focused validation with XSS prevention
 
 ## Quick Start
 
@@ -77,6 +78,7 @@ Analyze validator performance.
   "network": "kusama",
   "sessions_before": 10,
   "sessions_after": null,
+  "last_change_session": null,
   "exclude_latest": true,
   "network_normalized": true,
   "detailed": false,
@@ -101,7 +103,11 @@ Analyze validator performance.
 
 ### `GET /api/analysis/{id}`
 
-Retrieve a saved analysis by ID.
+Retrieve a saved analysis by ID (JSON format, for API consumers).
+
+### `GET /share/{id}`
+
+View a saved analysis as a formatted HTML page (for sharing links).
 
 ### `GET /api/health`
 
@@ -138,7 +144,8 @@ The `install.sh` script:
 │   ├── database.py       # SQLite handler
 │   └── requirements.txt
 ├── frontend/
-│   └── index.html        # Web UI
+│   ├── index.html                  # Web UI
+│   └── polkadot-address-icon.png   # Static assets
 ├── data/
 │   └── analyses.db       # SQLite database
 ├── .cache/               # Session cache
@@ -216,8 +223,8 @@ find /opt/performance-analyzer/.cache -name "*.json" -mtime +180 -delete
 ### Analysis Database
 
 - **Location**: `data/analyses.db`
-- **Purpose**: Store completed analyses for sharing
-- **Deduplication**: Same validator+session within 1 hour returns cached result
+- **Purpose**: Store completed analyses for shareable URLs
+- **Each analysis is stored**: Different parameters create new entries
 
 **Maintenance:**
 ```bash
@@ -253,12 +260,16 @@ for session in range(current - 50, current):
    - 50 requests/minute per IP for `/api/analysis/{id}`
 
 2. **Input Validation**: All inputs validated via Pydantic models
+   - **Address**: Must be alphanumeric, 46-48 characters (SS58 format)
+   - **Comment**: Limited to 200 characters, safe characters only (letters, numbers, spaces, `. , : ; - _ = + ( ) [ ] / # @`)
 
-3. **No User Accounts**: Privacy-friendly, no PII collected
+3. **XSS Prevention**: Comments are HTML-escaped in shared analysis pages
 
-4. **HTTPS**: Strongly recommended via Nginx + Let's Encrypt
+4. **No User Accounts**: Privacy-friendly, no PII collected
 
-5. **Service Isolation**: Runs as dedicated user with restricted permissions
+5. **HTTPS**: Strongly recommended via Nginx + Let's Encrypt
+
+6. **Service Isolation**: Runs as dedicated user with restricted permissions
 
 ## Monitoring
 
