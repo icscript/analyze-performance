@@ -143,6 +143,12 @@ def analyze_performance(request: Request, params: AnalyzeRequest):
             else:
                 direction = "no_change"
 
+        # Add calculated metrics to results before saving
+        if improvement_pct is not None:
+            results['improvement_pct'] = improvement_pct
+        if direction is not None:
+            results['direction'] = direction
+
         # Save to database
         analysis_id = db.save_analysis(
             params=params.model_dump(),
@@ -319,6 +325,10 @@ def view_shared_analysis(request: Request, analysis_id: str):
     before_stats = results['before_stats']
     after_stats = results['after_stats']
 
+    # Escape comment for HTML display
+    comment = results.get('comment', '')
+    escaped_comment = html.escape(str(comment)) if comment else ''
+
     # Direction arrow and color
     arrow = "↑" if direction == "improvement" else "↓" if direction == "decline" else "→"
     color = "green" if direction == "improvement" else "red" if direction == "decline" else "gray"
@@ -346,7 +356,7 @@ def view_shared_analysis(request: Request, analysis_id: str):
         interpretation = "✗✗ SIGNIFICANT DECLINE - Consider reverting configuration change"
         interp_color = "red"
 
-    html = f"""
+    page_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -385,7 +395,7 @@ def view_shared_analysis(request: Request, analysis_id: str):
                             <p class="text-gray-600">Validator Address</p>
                             <p class="font-mono text-xs break-all">{results['validator']}</p>
                         </div>
-                        {'<div class="col-span-2"><p class="text-gray-600">Comment</p><p class="font-medium">' + html.escape(str(results.get('comment', ''))) + '</p></div>' if results.get('comment') else ''}
+                        {'<div class="col-span-2"><p class="text-gray-600">Comment</p><p class="font-medium">' + escaped_comment + '</p></div>' if escaped_comment else ''}
                     </div>
 
                     <div class="border-t pt-6">
@@ -433,7 +443,7 @@ def view_shared_analysis(request: Request, analysis_id: str):
     </html>
     """
 
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=page_html)
 
 
 # Access key for private admin pages
