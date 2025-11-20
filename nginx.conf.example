@@ -2,6 +2,34 @@
 # Place this in /etc/nginx/sites-available/performance-analyzer
 # Then symlink to sites-enabled: ln -s /etc/nginx/sites-available/performance-analyzer /etc/nginx/sites-enabled/
 
+# =============================================================================
+# OPTION 1: Simple HTTP-only (for testing or internal use)
+# =============================================================================
+# Uncomment this block if you just want port 80 without HTTPS
+
+# server {
+#     listen 80;
+#     server_name _;  # Accept any hostname
+#
+#     location / {
+#         proxy_pass http://localhost:8000;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         proxy_connect_timeout 180s;
+#         proxy_send_timeout 180s;
+#         proxy_read_timeout 180s;
+#     }
+#
+#     access_log /var/log/nginx/performance-analyzer-access.log;
+#     error_log /var/log/nginx/performance-analyzer-error.log;
+# }
+
+# =============================================================================
+# OPTION 2: HTTPS with HTTP redirect (recommended for production)
+# =============================================================================
+
 server {
     listen 80;
     server_name your-domain.com www.your-domain.com;  # Change this
