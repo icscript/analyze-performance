@@ -1,8 +1,13 @@
 """
 Pydantic models for API requests and responses
 """
+import re
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
+
+# Allowed characters for user input (prevents XSS and injection attacks)
+# Letters, numbers, spaces, and safe punctuation
+SAFE_COMMENT_PATTERN = re.compile(r'^[a-zA-Z0-9\s\.\,\:\;\-\_\=\+\(\)\[\]\/\#\@]*$')
 
 
 class AnalyzeRequest(BaseModel):
@@ -35,7 +40,24 @@ class AnalyzeRequest(BaseModel):
             raise ValueError('Invalid SS58 address format (must be 46-48 characters)')
         if not v[0].isalnum():
             raise ValueError('Invalid SS58 address format (must start with alphanumeric character)')
+        # Only allow alphanumeric characters (SS58 addresses are base58)
+        if not v.isalnum():
+            raise ValueError('Invalid SS58 address format (must contain only letters and numbers)')
         return v
+
+    @field_validator('comment')
+    @classmethod
+    def validate_comment(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        # Limit length to prevent abuse
+        if len(v) > 200:
+            raise ValueError('Comment must be 200 characters or less')
+        # Only allow safe characters (prevents XSS, injection attacks)
+        # Allowed: letters, numbers, spaces, . , : ; - _ = + ( ) [ ] / # @
+        if not SAFE_COMMENT_PATTERN.match(v):
+            raise ValueError('Comment contains invalid characters. Allowed: letters, numbers, spaces, and . , : ; - _ = + ( ) [ ] / # @')
+        return v.strip()
 
 
 class SessionInfo(BaseModel):

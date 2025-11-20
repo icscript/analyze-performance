@@ -7,6 +7,7 @@ Follows original developer's guidance:
 - Network-normalized mode as default
 - Preserve all scoring logic from CLI tool
 """
+import html
 import io
 import sys
 import time
@@ -384,7 +385,7 @@ def view_shared_analysis(request: Request, analysis_id: str):
                             <p class="text-gray-600">Validator Address</p>
                             <p class="font-mono text-xs break-all">{results['validator']}</p>
                         </div>
-                        {'<div class="col-span-2"><p class="text-gray-600">Comment</p><p class="font-medium">' + str(results.get('comment', '')) + '</p></div>' if results.get('comment') else ''}
+                        {'<div class="col-span-2"><p class="text-gray-600">Comment</p><p class="font-medium">' + html.escape(str(results.get('comment', ''))) + '</p></div>' if results.get('comment') else ''}
                     </div>
 
                     <div class="border-t pt-6">
