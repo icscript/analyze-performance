@@ -97,22 +97,10 @@ def analyze_performance(request: Request, params: AnalyzeRequest):
         if params.last_change_session is not None:
             sessions_before = calculate_sessions_before(params.last_change_session, params.change_session)
 
-        # Check for recent analysis with same parameters (cache deduplication)
-        existing_id = db.find_recent_analysis(
-            address=params.address,
-            change_session=params.change_session,
-            network=params.network,
-            max_age_hours=1  # Return cached result if < 1 hour old
-        )
-
-        if existing_id:
-            # Return existing analysis
-            cached = db.get_analysis(existing_id)
-            if cached:
-                result = cached['results']
-                result['analysis_id'] = existing_id
-                result['cached'] = True
-                return result
+        # Note: We don't use cache deduplication here because different parameters
+        # (sessions_before, sessions_after, comment, etc.) should produce different results.
+        # The session data itself is already efficiently cached in .cache/ directory,
+        # so re-running with different parameters is fast.
 
         # Initialize analyzer (synchronous as recommended)
         analyzer = ValidatorPerformanceAnalyzer(
