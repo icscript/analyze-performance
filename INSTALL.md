@@ -25,10 +25,51 @@ sudo git pull
 sudo systemctl restart performance-analyzer
 ```
 
-Or use the deploy script:
+Or create a convenience script in your home directory:
 ```bash
-sudo /opt/performance-analyzer/deploy.sh
+#!/bin/bash
+cd /opt/performance-analyzer
+git pull
+systemctl restart performance-analyzer
 ```
+
+## Nginx Setup (Port 80)
+
+After installation, set up nginx to serve on port 80:
+
+```bash
+# Install nginx
+apt-get install -y nginx
+
+# Create config (uses Option 1 from nginx.conf.example)
+cat > /etc/nginx/sites-available/performance-analyzer << 'EOF'
+server {
+    listen 80;
+    server_name _;
+
+    location / {
+        proxy_pass http://localhost:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 180s;
+        proxy_send_timeout 180s;
+        proxy_read_timeout 180s;
+    }
+
+    access_log /var/log/nginx/performance-analyzer-access.log;
+    error_log /var/log/nginx/performance-analyzer-error.log;
+}
+EOF
+
+# Enable site
+rm -f /etc/nginx/sites-enabled/default
+ln -sf /etc/nginx/sites-available/performance-analyzer /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+For HTTPS setup, see `nginx.conf.example` Option 2.
 
 ## Service Management
 
@@ -46,4 +87,11 @@ journalctl -u performance-analyzer -f   # View logs
 
 ## Ports
 
-- **8000** - Application (configure firewall/nginx as needed)
+- **80** - Nginx (public access)
+- **8000** - Application (internal, proxied by nginx)
+
+## Notes
+
+- The repo should be cloned directly to `/opt/performance-analyzer`
+- Do not clone elsewhere and copy files - use git pull for updates
+- The service user `performance-analyzer` runs the app with read-only access to code
