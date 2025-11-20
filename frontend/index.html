@@ -486,7 +486,16 @@
 
                         if (!response.ok) {
                             const errorData = await response.json();
-                            throw new Error(errorData.detail || 'Analysis failed');
+                            let errorMsg = 'Analysis failed';
+                            if (errorData.detail) {
+                                if (Array.isArray(errorData.detail)) {
+                                    // Validation errors - extract messages
+                                    errorMsg = errorData.detail.map(e => e.msg || e).join('; ');
+                                } else {
+                                    errorMsg = errorData.detail;
+                                }
+                            }
+                            throw new Error(errorMsg);
                         }
 
                         this.results = await response.json();
