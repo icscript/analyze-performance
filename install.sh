@@ -3,7 +3,10 @@
 # Installation script for Validator Performance Analyzer Web Application
 # Deploys the application as a systemd service
 #
-# Usage: sudo ./install.sh
+# Usage:
+#   sudo git clone <repo> /opt/performance-analyzer
+#   cd /opt/performance-analyzer
+#   sudo ./install.sh
 #
 
 set -e
@@ -25,10 +28,14 @@ APP_DIR="/opt/${APP_NAME}"
 SERVICE_USER="performance-analyzer"
 SERVICE_PORT="8000"
 
+# Detect if running from target directory or elsewhere
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo "Configuration:"
 echo "  App Directory: ${APP_DIR}"
 echo "  Service User: ${SERVICE_USER}"
 echo "  Service Port: ${SERVICE_PORT}"
+echo "  Script Location: ${SCRIPT_DIR}"
 echo ""
 
 # Create service user if doesn't exist
@@ -39,21 +46,29 @@ else
     echo "✓ Service user already exists"
 fi
 
-# Create app directory
-echo "Creating application directory: ${APP_DIR}..."
-mkdir -p ${APP_DIR}
-mkdir -p ${APP_DIR}/data
-mkdir -p ${APP_DIR}/.cache
+# Handle installation location
+if [ "$SCRIPT_DIR" = "$APP_DIR" ]; then
+    echo "✓ Running from target directory (git clone deployment)"
+    # Create data directories
+    mkdir -p ${APP_DIR}/data
+    mkdir -p ${APP_DIR}/backend/.cache
+else
+    echo "Copying files to ${APP_DIR}..."
+    mkdir -p ${APP_DIR}
+    mkdir -p ${APP_DIR}/data
+    mkdir -p ${APP_DIR}/backend/.cache
+    cp -r backend ${APP_DIR}/
+    cp -r frontend ${APP_DIR}/
+    cp deploy.sh ${APP_DIR}/ 2>/dev/null || true
+fi
 
-# Copy application files
-echo "Copying application files..."
-cp -r backend ${APP_DIR}/
-cp -r frontend ${APP_DIR}/
-cp -r .cache/* ${APP_DIR}/.cache/ 2>/dev/null || true  # Copy cache if exists
-
-# Set ownership
+# Set ownership - root owns code, service user owns data
 echo "Setting file ownership..."
-chown -R ${SERVICE_USER}:${SERVICE_USER} ${APP_DIR}
+chown -R root:${SERVICE_USER} ${APP_DIR}
+chmod -R g+r ${APP_DIR}
+chmod g+x ${APP_DIR} ${APP_DIR}/backend ${APP_DIR}/frontend
+chown -R ${SERVICE_USER}:${SERVICE_USER} ${APP_DIR}/data
+chown -R ${SERVICE_USER}:${SERVICE_USER} ${APP_DIR}/backend/.cache
 
 # Install Python and dependencies
 echo "Installing Python dependencies..."
@@ -81,18 +96,15 @@ After=network.target
 Type=simple
 User=${SERVICE_USER}
 Group=${SERVICE_USER}
-WorkingDirectory=${APP_DIR}/backend
+WorkingDirectory=${APP_DIR}
 Environment="PATH=${APP_DIR}/venv/bin"
-ExecStart=${APP_DIR}/venv/bin/uvicorn main:app --host 0.0.0.0 --port ${SERVICE_PORT}
+Environment="PYTHONPATH=${APP_DIR}/backend"
+ExecStart=${APP_DIR}/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port ${SERVICE_PORT}
 Restart=always
 RestartSec=10
 
 # Security settings
 NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=${APP_DIR}/data ${APP_DIR}/.cache
 
 [Install]
 WantedBy=multi-user.target
@@ -127,8 +139,10 @@ if systemctl is-active --quiet ${APP_NAME}; then
     echo "Useful commands:"
     echo "  systemctl status ${APP_NAME}   # Check status"
     echo "  systemctl restart ${APP_NAME}  # Restart service"
-    echo "  systemctl stop ${APP_NAME}     # Stop service"
-    echo "  systemctl start ${APP_NAME}    # Start service"
+    echo "  journalctl -u ${APP_NAME} -f   # View logs"
+    echo ""
+    echo "To deploy updates:"
+    echo "  cd ${APP_DIR} && sudo git pull && sudo systemctl restart ${APP_NAME}"
     echo ""
 else
     echo ""
