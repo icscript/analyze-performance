@@ -13,6 +13,63 @@
 
     <style>
         [x-cloak] { display: none !important; }
+
+        /* Tooltip styles */
+        .tooltip-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            margin-left: 4px;
+            font-size: 11px;
+            color: #6b7280;
+            border: 1px solid #d1d5db;
+            border-radius: 50%;
+            cursor: help;
+        }
+        .tooltip-icon:hover {
+            color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            z-index: 50;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 280px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: normal;
+            line-height: 1.4;
+            color: #1f2937;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+        .tooltip-text::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: white;
+        }
+        .tooltip-container:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -44,7 +101,11 @@
                 <!-- Validator Address -->
                 <div class="mb-6">
                     <label for="address" class="block text-sm font-medium text-gray-700 mb-2">
-                        Validator Address *
+                        <span class="tooltip-container">
+                            Validator Address *
+                            <span class="tooltip-icon">i</span>
+                            <span class="tooltip-text">Your validator's on-chain address. Find this in your staking dashboard or validator setup documentation.</span>
+                        </span>
                     </label>
                     <input
                         type="text"
@@ -60,7 +121,11 @@
                 <!-- Change Session -->
                 <div class="mb-6">
                     <label for="changeSession" class="block text-sm font-medium text-gray-700 mb-2">
-                        Change Session *
+                        <span class="tooltip-container">
+                            Change Session *
+                            <span class="tooltip-icon">i</span>
+                            <span class="tooltip-text">The session number when your configuration change took effect. This is the dividing point between "before" and "after" in the analysis. Find session numbers in your validator logs or the Polkadot/Kusama explorer.</span>
+                        </span>
                     </label>
                     <input
                         type="number"
@@ -83,13 +148,25 @@
                         <label class="flex items-start cursor-pointer">
                             <input type="radio" x-model="rangeMode" value="auto" class="mt-1 mr-2">
                             <div>
-                                <div class="font-medium">Auto-calculate</div>
+                                <div class="font-medium">
+                                    <span class="tooltip-container">
+                                        Auto-calculate
+                                        <span class="tooltip-icon">i</span>
+                                        <span class="tooltip-text">Best for tracking incremental changes. Enter the session of your PREVIOUS configuration change, and the tool will analyze all sessions between that change and your current change. This ensures you're measuring the impact of just the previous configuration.</span>
+                                    </span>
+                                </div>
                                 <div class="text-sm text-gray-600">Automatically analyze from prior change to current change</div>
                             </div>
                         </label>
                         <div x-show="rangeMode === 'auto'" class="mt-3 ml-6 grid grid-cols-2 gap-4">
                             <div>
-                                <label for="lastChange" class="block text-sm text-gray-700 mb-1">Prior change session:</label>
+                                <label for="lastChange" class="block text-sm text-gray-700 mb-1">
+                                    <span class="tooltip-container">
+                                        Prior change session:
+                                        <span class="tooltip-icon">i</span>
+                                        <span class="tooltip-text">The session when you made your PREVIOUS configuration change (before the current one). The "before" period will be calculated as all sessions from this point until your current change.</span>
+                                    </span>
+                                </label>
                                 <input
                                     type="number"
                                     id="lastChange"
@@ -155,7 +232,11 @@
                         <label class="flex items-center cursor-pointer">
                             <input type="checkbox" x-model="form.network_normalized" class="mr-2">
                             <span class="text-sm">
-                                Network-normalized scoring
+                                <span class="tooltip-container">
+                                    Network-normalized scoring
+                                    <span class="tooltip-icon">i</span>
+                                    <span class="tooltip-text">Compares your validator against ALL validators in each session, giving you an exact match with the Turboflakes dashboard scores. Recommended for accurate results. First analysis fetches network data (30-60s), subsequent ones are instant.</span>
+                                </span>
                                 <span class="text-gray-500">(exact dashboard match - first analysis may take 30-60s, subsequent instant)</span>
                             </span>
                         </label>
@@ -165,7 +246,13 @@
                         </label>
                         <label class="flex items-center cursor-pointer">
                             <input type="checkbox" x-model="form.exclude_latest" class="mr-2">
-                            <span class="text-sm">Exclude latest session (if incomplete)</span>
+                            <span class="text-sm">
+                                <span class="tooltip-container">
+                                    Exclude latest session (if incomplete)
+                                    <span class="tooltip-icon">i</span>
+                                    <span class="tooltip-text">Sessions take about 1 hour to complete. If the current session is still in progress, its partial data could skew your results. Keep this checked unless you specifically want to include incomplete data.</span>
+                                </span>
+                            </span>
                         </label>
                     </div>
                 </div>
