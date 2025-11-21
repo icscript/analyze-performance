@@ -244,9 +244,9 @@
                             <input type="checkbox" x-model="form.exclude_latest" class="mr-2">
                             <span class="text-sm">
                                 <span class="tooltip-container">
-                                    Exclude latest session (if incomplete)
+                                    Exclude current open (incomplete) session
                                     <span class="tooltip-icon">i</span>
-                                    <span class="tooltip-text">If the current session is still in progress, its partial data could skew your results. Keep this checked unless you specifically want to include incomplete data.</span>
+                                    <span class="tooltip-text">The current open session's partial data may skew your results. Keep this checked unless you specifically want to include the current open session's incomplete data. Note: we are doing further testing as to whether the current open session is actually included in our data collection, and if so, to what effect its data actually has on the aggregate calculations. It's possible this checkbox is excluding the last completed session. Consider this feature experimental, though it's safest to leave it checked.</span>
                                 </span>
                             </span>
                         </label>
